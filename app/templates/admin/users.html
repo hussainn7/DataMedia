@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Users</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Created Date</th>
+                            <th>Files Count</th>
+                            <th>Total Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.created_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ user.files|length }}</td>
+                            <td>{{ (user.files|sum(attribute='file_size') / 1024 / 1024)|round(2) }} MB</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

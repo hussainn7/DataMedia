@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Statistics for admin</h5>
+                <p>Total Files: {{ total_files }}</p>
+                <p>Total Size: {{ (total_size / 1024 / 1024)|round(2) }} MB</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Upload File</h5>
+                <form action="{{ url_for('admin.upload_file') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="folder" class="form-label">Folder</label>
+                        <select name="folder" id="folder" class="form-select">
+                            {% if folders %}
+                                {% for folder in folders %}
+                                <option value="{{ folder.name }}">{{ folder.name }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="default">default</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Choose File</label>
+                        <input type="file" class="form-control" id="file" name="file">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">Create Folder</h5>
+                <form action="{{ url_for('admin.create_folder') }}" method="post">
+                    <div class="mb-3">
+                        <label for="folder_name" class="form-label">Folder Name</label>
+                        <input type="text" class="form-control" id="folder_name" name="folder_name" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Folder</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Files</h5>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Folder</th>
+                            <th>Size</th>
+                            <th>Upload Date</th>
+                            <th>Public URL</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr>
+                            <td>{{ file.original_filename }}</td>
+                            <td>{{ file.folder }}</td>
+                            <td>{{ (file.file_size / 1024)|round(2) }} KB</td>
+                            <td>{{ file.upload_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                <a href="{{ file.public_url }}" target="_blank">View</a>
+                            </td>
+                            <td>
+                                <button class="btn btn-danger btn-sm delete-file" 
+                                        data-file-id="{{ file.id }}">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <script>
+                document.querySelectorAll('.delete-file').forEach(button => {
+                    button.addEventListener('click', async function() {
+                        if (confirm('Are you sure you want to delete this file?')) {
+                            const fileId = this.dataset.fileId;
+                            const response = await fetch(`/admin/delete_file/${fileId}`, {
+                                method: 'POST'
+                            });
+                            if (response.ok) {
+                                this.closest('tr').remove();
+                            } else {
+                                alert('Error deleting file');
+                            }
+                        }
+                    });
+                });
+                </script>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
