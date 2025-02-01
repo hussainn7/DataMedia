@@ -12,7 +12,7 @@ class User(db.Model, UserMixin):
 
     def __init__(self, username, password, is_admin=False):
         self.username = username
-        self.password = password
+        self.set_password(password)
         self.is_admin = is_admin
         self.created_date = datetime.utcnow()
 
@@ -23,16 +23,23 @@ class User(db.Model, UserMixin):
         return self.password == password
 
 class File(db.Model):
+    __tablename__ = 'files'  # Explicitly name the table
+    
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(255), nullable=False)
-    original_filename = db.Column(db.String(255), nullable=False)
-    folder = db.Column(db.String(255), nullable=False)
+    original_filename = db.Column(db.String(255))
+    type = db.Column(db.String(50))
+    has_title = db.Column(db.Boolean, default=False)
+    has_keys = db.Column(db.Boolean, default=False)
+    location = db.Column(db.String(255))
+    vin = db.Column(db.String(50))
+    description = db.Column(db.Text)
     file_type = db.Column(db.String(50))
     file_size = db.Column(db.Integer)
-    public_url = db.Column(db.String(500), unique=True)
-    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    
+    public_url = db.Column(db.String(255))
+    created_date = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+
 class Folder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False, unique=True)
@@ -40,4 +47,11 @@ class Folder(db.Model):
 
     def __init__(self, name):
         self.name = name
-        self.created_date = datetime.utcnow() 
+        self.created_date = datetime.utcnow()
+
+class Column(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # text, number, date, etc.
+    required = db.Column(db.Boolean, default=False)
+    created_date = db.Column(db.DateTime, default=datetime.utcnow) 

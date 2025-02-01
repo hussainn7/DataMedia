@@ -1,67 +1,264 @@
 {% extends "base.html" %}
 
-{% block title %}My Files{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
+<style>
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: box-shadow 0.3s ease;
+    }
+    .card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .table > tbody > tr {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+    
+    .table > tbody > tr:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+    
+    .table > tbody > tr.selected {
+        background-color: rgba(13,110,253,0.1);
+    }
+    
+    .form-control:focus, .form-check-input:focus {
+        box-shadow: 0 0 0 0.15rem rgba(13,110,253,0.25);
+    }
+    
+    .btn-outline-secondary:hover {
+        background-color: #f8f9fa;
+        color: #6c757d;
+        border-color: #6c757d;
+    }
+</style>
+
 <div class="row">
-    <div class="col-md-12">
-        <div class="card">
+    <!-- Left Side - Upload and Search Section -->
+    <div class="col-md-4">
+        <!-- Upload Card -->
+        <div class="card mb-4">
             <div class="card-body">
                 <h5 class="card-title">Upload File</h5>
-                <form action="{{ url_for('user.upload_file') }}" method="post" enctype="multipart/form-data">
+                <form action="{{ url_for('user.upload_file') }}" method="POST" enctype="multipart/form-data">
+                    <!-- File Upload -->
                     <div class="mb-3">
                         <label for="file" class="form-label">Choose File</label>
-                        <input type="file" class="form-control" id="file" name="file">
+                        <input type="file" class="form-control" id="file" name="file" required>
                     </div>
+
+                    <!-- Type Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="is_vehicle" id="vehicle" value="vehicle" checked>
+                            <label class="form-check-label" for="vehicle">Vehicle</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="is_container" id="container" value="container">
+                            <label class="form-check-label" for="container">Container</label>
+                        </div>
+                    </div>
+
+                    <!-- Title and Keys Selection -->
+                    <div class="mb-3">
+                        <div class="d-flex gap-4">
+                            <!-- Title Selection -->
+                            <div>
+                                <label class="form-label mb-0 me-2">Title</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="has_title" id="title_yes" value="yes">
+                                    <label class="form-check-label" for="title_yes">Yes</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="has_title" id="title_no" value="no">
+                                    <label class="form-check-label" for="title_no">No</label>
+                                </div>
+                            </div>
+
+                            <!-- Keys Selection -->
+                            <div>
+                                <label class="form-label mb-0 me-2">Keys</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="has_keys" id="keys_yes" value="yes">
+                                    <label class="form-check-label" for="keys_yes">Yes</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="has_keys" id="keys_no" value="no">
+                                    <label class="form-check-label" for="keys_no">No</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Location, VIN, and Description in a more compact form -->
+                    <div class="mb-3">
+                        <div class="row g-2">
+                            <!-- Location -->
+                            <div class="col-md-6">
+                                <label for="location" class="form-label mb-1">Location</label>
+                                <input type="text" class="form-control form-control-sm" id="location" name="location">
+                            </div>
+                            <!-- VIN -->
+                            <div class="col-md-6">
+                                <label for="vin" class="form-label mb-1">VIN</label>
+                                <input type="text" class="form-control form-control-sm" id="vin" name="vin">
+                            </div>
+                            <!-- Description -->
+                            <div class="col-12">
+                                <label for="description" class="form-label mb-1">Description</label>
+                                <textarea class="form-control form-control-sm" id="description" name="description" rows="2" style="resize: none;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn btn-primary">Upload</button>
                 </form>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="row mt-4">
-    <div class="col-12">
+        <!-- Search and Filters Card -->
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">My Files</h5>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Filename</th>
-                            <th>Size</th>
-                            <th>Upload Date</th>
-                            <th>Public URL</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for file in files %}
-                        <tr>
-                            <td>{{ file.original_filename }}</td>
-                            <td>{{ (file.file_size / 1024)|round(2) }} KB</td>
-                            <td>{{ file.upload_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                            <td>
-                                <a href="{{ file.public_url }}" target="_blank">View</a>
-                                <button class="btn btn-sm btn-copy" data-url="{{ file.public_url }}">Copy Link</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                <h5 class="card-title">Search & Filters</h5>
+                <form method="GET">
+                    <!-- Search and Filter Section -->
+                    <div class="mb-3">
+                        <!-- Search by VIN -->
+                        <div class="mb-2">
+                            <label for="search_vin" class="form-label mb-1">Search by VIN</label>
+                            <input type="text" class="form-control form-control-sm" id="search_vin" name="search_vin" 
+                                value="{{ request.args.get('search_vin', '') }}">
+                        </div>
+
+                        <!-- Filters -->
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="filter_type" id="filter_vehicle" value="vehicle"
+                                        {{ 'checked' if 'vehicle' in request.args.getlist('filter_type') }}>
+                                    <label class="form-check-label" for="filter_vehicle">Vehicle</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="filter_type" id="filter_container" value="container"
+                                        {{ 'checked' if 'container' in request.args.getlist('filter_type') }}>
+                                    <label class="form-check-label" for="filter_container">Container</label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="has_title" id="has_title" value="yes"
+                                        {{ 'checked' if request.args.get('has_title') == 'yes' }}>
+                                    <label class="form-check-label" for="has_title">Title</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="has_keys" id="has_keys" value="yes"
+                                        {{ 'checked' if request.args.get('has_keys') == 'yes' }}>
+                                    <label class="form-check-label" for="has_keys">Keys</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Search</button>
+                        {% if request.args %}
+                            <a href="{{ url_for('user.dashboard') }}" class="btn btn-secondary">Clear Filters</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Side - Data Table -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <!-- Files Table -->
+                <h5 class="card-title">Files</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>VIN</th>
+                                <th>Description</th>
+                                <th>Location</th>
+                                <th>Title</th>
+                                <th>Keys</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if files %}
+                                {% for file in files %}
+                                <tr>
+                                    <td>{{ file.created_date.strftime('%Y-%m-%d %H:%M') if file.created_date else 'N/A' }}</td>
+                                    <td>{{ file.type|title }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span id="vin-{{ file.id }}">{{ file.vin }}</span>
+                                            {% if file.vin %}
+                                            <button class="btn btn-sm btn-outline-secondary ms-2" 
+                                                    onclick="copyVIN('{{ file.id }}')" 
+                                                    title="Copy VIN">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>{{ file.description if file.description else '' }}</td>
+                                    <td>{{ file.location }}</td>
+                                    <td>{{ 'Yes' if file.has_title else 'No' }}</td>
+                                    <td>{{ 'Yes' if file.has_keys else 'No' }}</td>
+                                    <td><a href="{{ file.public_url }}" target="_blank">View</a></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center">No files found</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-document.querySelectorAll('.btn-copy').forEach(button => {
-    button.addEventListener('click', function() {
-        const url = this.dataset.url;
-        navigator.clipboard.writeText(url).then(() => {
-            this.textContent = 'Copied!';
-            setTimeout(() => {
-                this.textContent = 'Copy Link';
-            }, 2000);
+function copyVIN(fileId) {
+    const vinElement = document.getElementById(`vin-${fileId}`);
+    const vin = vinElement.textContent;
+    
+    navigator.clipboard.writeText(vin).then(function() {
+        // Visual feedback
+        const button = vinElement.nextElementSibling;
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+        }, 1000);
+    }).catch(function(err) {
+        console.error('Failed to copy text: ', err);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const tableRows = document.querySelectorAll('table tbody tr');
+    
+    tableRows.forEach(row => {
+        row.addEventListener('click', function() {
+            // Remove selected class from all rows
+            tableRows.forEach(r => r.classList.remove('selected'));
+            // Add selected class to clicked row
+            this.classList.add('selected');
         });
     });
 });

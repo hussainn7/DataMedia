@@ -4,8 +4,9 @@ from werkzeug.utils import secure_filename
 import os
 import uuid
 from app import db
-from app.models import File, Folder, User
+from app.models import File, Folder, User, Column
 from config import Config
+from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 main_bp = Blueprint('main', __name__)
@@ -14,14 +15,20 @@ user_bp = Blueprint('user', __name__, url_prefix='/user')
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
-@admin_bp.route('/login', methods=['GET', 'POST'])
-def login():
+@admin_bp.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form['username']).first()
-        if user and user.is_admin and user.password == request.form['password']:
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password) and user.is_admin:
             login_user(user)
+            flash('Logged in successfully as admin.')
             return redirect(url_for('admin.dashboard'))
-        flash('Invalid credentials')
+        else:
+            flash('Invalid admin credentials')
+    
     return render_template('admin/login.html')
 
 @admin_bp.route('/logout')
@@ -30,49 +37,69 @@ def logout():
     logout_user()
     return redirect(url_for('admin.login'))
 
-@admin_bp.route('/dashboard')
+@admin_bp.route('/admin/dashboard')
 @login_required
 def dashboard():
     if not current_user.is_admin:
-        return redirect(url_for('main.login'))
-    files = File.query.all()
-    folders = Folder.query.all()
-    users = User.query.filter_by(is_admin=False).all()  # Get non-admin users
-    total_files = len(files)
-    total_size = sum(f.file_size for f in files)
-    return render_template('admin/dashboard.html', 
-                         files=files, 
-                         folders=folders,
-                         users=users,
-                         total_files=total_files,
-                         total_size=total_size)
+        return redirect(url_for('main.dashboard'))
 
-@admin_bp.route('/upload', methods=['POST'])
+    # Get search parameters
+    search_vin = request.args.get('search_vin', '')
+    filter_type = request.args.getlist('filter_type')
+    has_title = request.args.get('has_title')
+    has_keys = request.args.get('has_keys')
+
+    # Start with base query
+    query = File.query
+
+    # Apply filters
+    if search_vin:
+        query = query.filter(File.vin.ilike(f'%{search_vin}%'))
+    
+    
+    if filter_type:
+        query = query.filter(File.type.in_(filter_type))
+    
+    if request.args and not has_title:
+        query = query.filter(File.has_title == False)
+    elif has_title == 'yes':
+        query = query.filter(File.has_title == True)
+    
+    if request.args and not has_keys:
+        query = query.filter(File.has_keys == False)
+    elif has_keys == 'yes':
+        query = query.filter(File.has_keys == True)
+
+    # Get files and sort
+    files = query.order_by(File.created_date.desc()).all()
+    
+    return render_template('admin/dashboard.html', files=files)
+
+@admin_bp.route('/upload_file', methods=['POST'])
 @login_required
 def upload_file():
     if not current_user.is_admin:
+        return redirect(url_for('main.dashboard'))
+
+    file = request.files.get('file')
+    if not file:
+        flash('No file uploaded')
         return redirect(url_for('admin.dashboard'))
-        
-    if 'file' not in request.files:
-        flash('No file part')
-        return redirect(url_for('admin.dashboard'))
-    
-    file = request.files['file']
-    folder = request.form.get('folder', 'default')
-    
-    if file.filename == '':
-        flash('No selected file')
-        return redirect(url_for('admin.dashboard'))
-    
+
     if file and allowed_file(file.filename):
-        target_user = None
-        if folder.startswith('user_'):
-            username = folder[5:] 
-            target_user = User.query.filter_by(username=username).first()
-        
+        # Get form data - changed vehicle_type to match the form name 'type'
+        file_type = request.form.get('type')  # Changed from vehicle_type
+        has_title = request.form.get('has_title') == 'yes'
+        has_keys = request.form.get('has_keys') == 'yes'
+        location = request.form.get('location', '')
+        vin = request.form.get('vin', '')
+        description = request.form.get('description', '')
+
+        # Save file
         filename = secure_filename(file.filename)
         unique_filename = f"{uuid.uuid4()}_{filename}"
-        folder_path = os.path.join(Config.UPLOAD_FOLDER, folder)
+        folder_name = f"uploads_{datetime.now().strftime('%Y%m')}"
+        folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], folder_name)
         
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
@@ -83,17 +110,25 @@ def upload_file():
         new_file = File(
             filename=unique_filename,
             original_filename=filename,
-            folder=folder,
-            file_type=file.content_type,
+            type=file_type,  # Using the correct form field name
+            has_title=has_title,
+            has_keys=has_keys,
+            location=location,
+            vin=vin,
+            description=description,
+            file_type='document',
             file_size=os.path.getsize(file_path),
-            public_url=url_for('main.get_file', folder=folder, filename=unique_filename, _external=True),
-            user_id=target_user.id if target_user else current_user.id  
+            public_url=url_for('main.get_file', folder=folder_name, filename=unique_filename, _external=True),
+            user_id=current_user.id
         )
         
         db.session.add(new_file)
         db.session.commit()
         
         flash('File uploaded successfully')
+        return redirect(url_for('admin.dashboard'))
+    
+    flash('Invalid file type')
     return redirect(url_for('admin.dashboard'))
 
 @admin_bp.route('/folder/create', methods=['POST'])
@@ -118,13 +153,17 @@ def index():
 @main_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form['username']).first()
-        if user and user.password == request.form['password']:  
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
             login_user(user)
-            if user.is_admin:
-                return redirect(url_for('admin.dashboard'))
+            flash('Logged in successfully.')
             return redirect(url_for('user.dashboard'))
-        flash('Invalid username or password')
+        else:
+            flash('Invalid username or password')
+    
     return render_template('login.html')
 
 @main_bp.route('/register', methods=['GET', 'POST'])
@@ -156,8 +195,41 @@ def register():
 @user_bp.route('/dashboard')
 @login_required
 def dashboard():
-    user_files = File.query.filter_by(user_id=current_user.id).all()
-    return render_template('user/dashboard.html', files=user_files)
+    # Get search parameters
+    search_vin = request.args.get('search_vin', '')
+    filter_type = request.args.getlist('filter_type')
+    has_title = request.args.get('has_title')
+    has_keys = request.args.get('has_keys')
+
+    # Start with base query
+    query = File.query
+
+    # Apply filters
+    if search_vin:
+        query = query.filter(File.vin.ilike(f'%{search_vin}%'))
+    
+    if filter_type:
+        query = query.filter(File.type.in_(filter_type))
+    
+    # If filter is applied but checkbox not checked, show only items without title/keys
+    if request.args and not has_title:
+        query = query.filter(File.has_title == False)
+    elif has_title == 'yes':
+        query = query.filter(File.has_title == True)
+    
+    if request.args and not has_keys:
+        query = query.filter(File.has_keys == False)
+    elif has_keys == 'yes':
+        query = query.filter(File.has_keys == True)
+
+    # Get files and sort
+    user_files = query.filter_by(user_id=current_user.id).all()
+    admin_files = query.join(User).filter(User.is_admin == True).all()
+    
+    files = user_files + admin_files
+    files.sort(key=lambda x: x.created_date if x.created_date else datetime.min, reverse=True)
+    
+    return render_template('user/dashboard.html', files=files)
 
 @user_bp.route('/upload', methods=['POST'])
 @login_required
@@ -174,22 +246,34 @@ def upload_file():
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         unique_filename = f"{uuid.uuid4()}_{filename}"
-        folder_name = f"user_{current_user.username}"
-        folder_path = os.path.join(Config.UPLOAD_FOLDER, folder_name)
         
+        folder_path = os.path.join(Config.UPLOAD_FOLDER, str(current_user.id))
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
             
         file_path = os.path.join(folder_path, unique_filename)
         file.save(file_path)
         
+        # Get form data - updated to match admin form field names
+        file_type = request.form.get('type')  # Changed from type to match admin
+        has_title = request.form.get('has_title') == 'yes'
+        has_keys = request.form.get('has_keys') == 'yes'
+        location = request.form.get('location', '')
+        vin = request.form.get('vin', '')
+        description = request.form.get('description', '')  # Added description
+        
         new_file = File(
             filename=unique_filename,
             original_filename=filename,
-            folder=folder_name,
+            type=file_type,
+            has_title=has_title,
+            has_keys=has_keys,
+            location=location,
+            vin=vin,
+            description=description,  # Added description
             file_type=file.content_type,
             file_size=os.path.getsize(file_path),
-            public_url=url_for('main.get_file', folder=folder_name, filename=unique_filename, _external=True),
+            public_url=url_for('main.get_file', folder=str(current_user.id), filename=unique_filename, _external=True),
             user_id=current_user.id
         )
         
@@ -237,4 +321,59 @@ def create_admin():
     )
     db.session.add(admin)
     db.session.commit()
-    return 'Admin created successfully' 
+    return 'Admin created successfully'
+
+@main_bp.route('/reset-db')
+def reset_db():
+    # Drop all tables
+    with current_app.app_context():
+        db.drop_all()
+        db.create_all()
+        
+        # Create admin user
+        admin = User(
+            username=Config.ADMIN_USERNAME,
+            password=Config.ADMIN_PASSWORD,
+            is_admin=True
+        )
+        db.session.add(admin)
+        db.session.commit()
+        
+    return 'Database has been reset successfully!'
+
+@admin_bp.route('/columns', methods=['GET', 'POST'])
+@login_required
+def manage_columns():
+    if not current_user.is_admin:
+        return redirect(url_for('admin.dashboard'))
+        
+    if request.method == 'POST':
+        name = request.form.get('name')
+        column_type = request.form.get('type')
+        required = request.form.get('required') == 'on'
+        
+        new_column = Column(
+            name=name,
+            type=column_type,
+            required=required
+        )
+        db.session.add(new_column)
+        db.session.commit()
+        flash('Column added successfully')
+        
+    columns = Column.query.all()
+    return render_template('admin/columns.html', columns=columns)
+
+@main_bp.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.')
+    return redirect(url_for('main.index'))
+
+@admin_bp.route('/admin/logout')
+@login_required
+def admin_logout():
+    logout_user()
+    flash('You have been logged out from admin panel.')
+    return redirect(url_for('main.index')) 
