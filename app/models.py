@@ -23,12 +23,12 @@ class User(db.Model, UserMixin):
         return self.password == password
 
 class File(db.Model):
-    __tablename__ = 'files'  # Explicitly name the table
+    __tablename__ = 'files'
     
     id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String(255), nullable=False)
+    filename = db.Column(db.String(255))
     original_filename = db.Column(db.String(255))
-    type = db.Column(db.String(50))
+    type = db.Column(db.String(50), nullable=False, default='vehicle')
     has_title = db.Column(db.Boolean, default=False)
     has_keys = db.Column(db.Boolean, default=False)
     location = db.Column(db.String(255))
@@ -39,6 +39,8 @@ class File(db.Model):
     public_url = db.Column(db.String(255))
     created_date = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user = db.relationship('User', backref='uploaded_files')
+    carfax = db.Column(db.Text)  # Changed from String(255) to Text
 
 class Folder(db.Model):
     id = db.Column(db.Integer, primary_key=True)

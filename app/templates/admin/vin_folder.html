@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}VIN Folder - {{ vin }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h5 class="card-title mb-0">Files for VIN: {{ vin }}</h5>
+            <span class="badge bg-primary">Total Files: {{ files|length }}</span>
+        </div>
+
+        <!-- File Preview Section -->
+        <div class="mb-4">
+            <h6>Image Preview</h6>
+            <div class="row g-2 image-gallery" style="max-height: 300px; overflow-y: auto;">
+                {% for file in files %}
+                    {% if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
+                    <div class="col-md-2 col-sm-3 col-4">
+                        <div class="position-relative">
+                            <a href="{{ url_for('static', filename='uploads/' + vin + '/' + file) }}" 
+                               data-fancybox="gallery"
+                               data-caption="{{ file }}">
+                                <img src="{{ url_for('static', filename='uploads/' + vin + '/' + file) }}" 
+                                     class="img-fluid rounded"
+                                     alt="{{ file }}"
+                                     style="height: 100px; width: 100%; object-fit: cover;">
+                            </a>
+                            <a href="{{ url_for('static', filename='uploads/' + vin + '/' + file) }}" 
+                               class="btn btn-sm btn-success position-absolute bottom-0 end-0 m-1"
+                               download="{{ file }}"
+                               title="Download">
+                                <i class="fas fa-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- File List Section -->
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Filename</th>
+                        <th>Size</th>
+                        <th>Last Modified</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in files %}
+                    <tr id="file-row-{{ loop.index }}">
+                        <td>
+                            {% if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
+                                <i class="fas fa-image text-primary"></i>
+                            {% elif file.lower().endswith(('.pdf')) %}
+                                <i class="fas fa-file-pdf text-danger"></i>
+                            {% elif file.lower().endswith(('.doc', '.docx')) %}
+                                <i class="fas fa-file-word text-primary"></i>
+                            {% elif file.lower().endswith(('.xls', '.xlsx')) %}
+                                <i class="fas fa-file-excel text-success"></i>
+                            {% else %}
+                                <i class="fas fa-file text-secondary"></i>
+                            {% endif %}
+                        </td>
+                        <td class="filename-cell">
+                            <div class="filename">
+                                <a href="{{ url_for('static', filename='uploads/' + vin + '/' + file) }}" 
+                                   {% if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
+                                   data-fancybox="gallery-list"
+                                   {% else %}
+                                   target="_blank"
+                                   {% endif %}
+                                   class="text-primary text-decoration-underline">
+                                    {{ file }}
+                                </a>
+                            </div>
+                            <div class="rename-form d-none">
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm" 
+                                           value="{{ file }}" 
+                                           data-original-name="{{ file }}">
+                                    <button class="btn btn-sm btn-success save-rename" type="button">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary cancel-rename" type="button">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ get_file_size(vin, file) }}</td>
+                        <td>{{ get_file_modified_time(vin, file) }}</td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="{{ url_for('static', filename='uploads/' + vin + '/' + file) }}" 
+                                   class="btn btn-sm btn-success"
+                                   download="{{ file }}"
+                                   title="Download">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                {% if current_user.is_admin %}
+                                <button class="btn btn-sm btn-info start-rename" 
+                                        title="Rename File"
+                                        data-file-id="{{ loop.index }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-file" 
+                                        title="Remove File"
+                                        data-file-name="{{ file }}"
+                                        data-vin="{{ vin }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3">
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this file? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<!-- Add Fancybox CSS and JS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+
+<script>
+// Initialize Fancybox
+Fancybox.bind("[data-fancybox]", {
+    // Custom options
+    Carousel: {
+        infinite: false,
+    },
+    Thumbs: {
+        autoStart: true,
+    },
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Rename functionality
+    document.querySelectorAll('.start-rename').forEach(button => {
+        button.addEventListener('click', function() {
+            const fileId = this.dataset.fileId;
+            const row = document.getElementById(`file-row-${fileId}`);
+            const filenameCell = row.querySelector('.filename-cell');
+            filenameCell.querySelector('.filename').classList.add('d-none');
+            filenameCell.querySelector('.rename-form').classList.remove('d-none');
+        });
+    });
+
+    document.querySelectorAll('.cancel-rename').forEach(button => {
+        button.addEventListener('click', function() {
+            const form = this.closest('.rename-form');
+            const cell = form.closest('.filename-cell');
+            form.classList.add('d-none');
+            cell.querySelector('.filename').classList.remove('d-none');
+            const input = form.querySelector('input');
+            input.value = input.dataset.originalName;
+        });
+    });
+
+    document.querySelectorAll('.save-rename').forEach(button => {
+        button.addEventListener('click', async function() {
+            try {
+                const form = this.closest('.rename-form');
+                const input = form.querySelector('input');
+                const newName = input.value.trim();
+                const originalName = input.dataset.originalName;
+                
+                if (!newName) {
+                    alert('New filename cannot be empty');
+                    return;
+                }
+
+                console.log('Sending rename request:', {
+                    old_name: originalName,
+                    new_name: newName
+                });
+
+                const response = await fetch(`/admin/rename_file/{{ vin }}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        old_name: originalName,
+                        new_name: newName
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('Rename successful');
+                    window.location.reload();
+                } else {
+                    console.error('Rename failed:', data.error);
+                    alert(data.error || 'Failed to rename file');
+                }
+            } catch (error) {
+                console.error('Error during rename:', error);
+                alert('Error renaming file');
+            }
+        });
+    });
+
+    // Delete functionality
+    let fileToDelete = null;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+
+    document.querySelectorAll('.delete-file').forEach(button => {
+        button.addEventListener('click', function() {
+            fileToDelete = {
+                name: this.dataset.fileName,
+                vin: this.dataset.vin
+            };
+            console.log('File to delete:', fileToDelete);
+            deleteModal.show();
+        });
+    });
+
+    document.getElementById('confirmDelete').addEventListener('click', async function() {
+        if (!fileToDelete) {
+            console.error('No file selected for deletion');
+            return;
+        }
+
+        try {
+            console.log('Sending delete request:', fileToDelete);
+            
+            const response = await fetch(`/admin/delete_vin_file/{{ vin }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filename: fileToDelete.name
+                })
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                console.log('Delete successful');
+                window.location.reload();
+            } else {
+                console.error('Delete failed:', data.error);
+                alert(data.error || 'Failed to delete file');
+            }
+        } catch (error) {
+            console.error('Error during delete:', error);
+            alert('Error deleting file');
+        }
+
+        deleteModal.hide();
+    });
+
+});
+</script>
+{% endblock %}
+{% endblock %} 

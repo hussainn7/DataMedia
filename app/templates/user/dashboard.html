@@ -37,85 +37,55 @@
 </style>
 
 <div class="row">
-    <!-- Left Side - Upload and Search Section -->
     <div class="col-md-4">
         <!-- Upload Card -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Upload File</h5>
-                <form action="{{ url_for('user.upload_file') }}" method="POST" enctype="multipart/form-data">
-                    <!-- File Upload -->
-                    <div class="mb-3">
-                        <label for="file" class="form-label">Choose File</label>
-                        <input type="file" class="form-control" id="file" name="file" required>
-                    </div>
-
-                    <!-- Type Selection -->
-                    <div class="mb-3">
-                        <label class="form-label">Type</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="is_vehicle" id="vehicle" value="vehicle" checked>
-                            <label class="form-check-label" for="vehicle">Vehicle</label>
+        <div class="card mb-3">
+            <div class="card-body p-3">
+                <h6 class="card-title mb-2">Quick Upload</h6>
+                <form action="{{ url_for('admin.upload_file') }}" method="post" enctype="multipart/form-data">
+                    <div class="row g-2">
+                        <!-- VIN and Type in one row -->
+                        <div class="col-7">
+                            <input type="text" class="form-control form-control-sm" id="vin" name="vin" placeholder="VIN" required>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="is_container" id="container" value="container">
-                            <label class="form-check-label" for="container">Container</label>
+                        <div class="col-5">
+                            <select class="form-select form-select-sm" id="type" name="type" required>
+                                <option value="vehicle">Vehicle</option>
+                                <option value="container">Container</option>
+                            </select>
                         </div>
                     </div>
 
-                    <!-- Title and Keys Selection -->
-                    <div class="mb-3">
-                        <div class="d-flex gap-4">
-                            <!-- Title Selection -->
-                            <div>
-                                <label class="form-label mb-0 me-2">Title</label>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="has_title" id="title_yes" value="yes">
-                                    <label class="form-check-label" for="title_yes">Yes</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="has_title" id="title_no" value="no">
-                                    <label class="form-check-label" for="title_no">No</label>
-                                </div>
+                    <!-- File input -->
+                    <div class="my-2">
+                        <input type="file" class="form-control form-control-sm" id="file" name="file[]" multiple="multiple" required>
+                    </div>
+
+                    <!-- Checkboxes in one row -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <div class="form-check form-check-inline">
+                                <input type="checkbox" class="form-check-input" id="has_title" name="has_title" value="yes">
+                                <label class="form-check-label small" for="has_title">Has Title</label>
                             </div>
-
-                            <!-- Keys Selection -->
-                            <div>
-                                <label class="form-label mb-0 me-2">Keys</label>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="has_keys" id="keys_yes" value="yes">
-                                    <label class="form-check-label" for="keys_yes">Yes</label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="has_keys" id="keys_no" value="no">
-                                    <label class="form-check-label" for="keys_no">No</label>
-                                </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-check form-check-inline">
+                                <input type="checkbox" class="form-check-input" id="has_keys" name="has_keys" value="yes">
+                                <label class="form-check-label small" for="has_keys">Has Keys</label>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Location, VIN, and Description in a more compact form -->
-                    <div class="mb-3">
-                        <div class="row g-2">
-                            <!-- Location -->
-                            <div class="col-md-6">
-                                <label for="location" class="form-label mb-1">Location</label>
-                                <input type="text" class="form-control form-control-sm" id="location" name="location">
-                            </div>
-                            <!-- VIN -->
-                            <div class="col-md-6">
-                                <label for="vin" class="form-label mb-1">VIN</label>
-                                <input type="text" class="form-control form-control-sm" id="vin" name="vin">
-                            </div>
-                            <!-- Description -->
-                            <div class="col-12">
-                                <label for="description" class="form-label mb-1">Description</label>
-                                <textarea class="form-control form-control-sm" id="description" name="description" rows="2" style="resize: none;"></textarea>
-                            </div>
-                        </div>
+                    <!-- Location and Description -->
+                    <div class="mb-2">
+                        <input type="text" class="form-control form-control-sm" id="location" name="location" placeholder="Location">
+                    </div>
+                    <div class="mb-2">
+                        <textarea class="form-control form-control-sm" id="description" name="description" rows="2" placeholder="Description"></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-primary">Upload</button>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">Upload</button>
                 </form>
             </div>
         </div>
@@ -191,7 +161,6 @@
                                 <th>Location</th>
                                 <th>Title</th>
                                 <th>Keys</th>
-                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -202,26 +171,25 @@
                                     <td>{{ file.type|title }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <span id="vin-{{ file.id }}">{{ file.vin }}</span>
-                                            {% if file.vin %}
+                                            <a href="{{ url_for('admin.vin_folder', vin=file.vin) }}" class="text-decoration-none">
+                                                <span id="vin-{{ file.id }}">{{ file.vin }}</span>
+                                            </a>
                                             <button class="btn btn-sm btn-outline-secondary ms-2" 
                                                     onclick="copyVIN('{{ file.id }}')" 
                                                     title="Copy VIN">
                                                 <i class="fas fa-copy"></i>
                                             </button>
-                                            {% endif %}
                                         </div>
                                     </td>
                                     <td>{{ file.description if file.description else '' }}</td>
                                     <td>{{ file.location }}</td>
                                     <td>{{ 'Yes' if file.has_title else 'No' }}</td>
                                     <td>{{ 'Yes' if file.has_keys else 'No' }}</td>
-                                    <td><a href="{{ file.public_url }}" target="_blank">View</a></td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="8" class="text-center">No files found</td>
+                                    <td colspan="7" class="text-center">No files found</td>
                                 </tr>
                             {% endif %}
                         </tbody>
